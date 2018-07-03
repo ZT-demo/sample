@@ -1,0 +1,47 @@
+def label = "worker-${UUID.randomUUID().toString()}"
+
+podTemplate(label: label, containers: [
+ // containerTemplate(name: 'gradle', image: 'gradle:4.5.1-jdk9', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'maven', image: 'maven:alpine', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
+ // containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl:v1.8.8', command: 'cat', ttyEnabled: true),
+ // containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
+],
+volumes: [
+  hostPathVolume(mountPath: '/home/gradle/.gradle', hostPath: '/tmp/jenkins/.gradle'),
+  hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock'),
+  hostPathVolume(mountPath: '/root/.m2/repository', hostPath: '/root/.m2/repository')
+ // persistentVolumeClaim(mountPath: '/root/.m2/repository', claimName: 'maven-repo', readOnly: false)
+]) {
+  node(label) {
+
+    git 'https://github.com/ZT-demo/sample.git'
+
+    
+
+        stage('create container image') {
+            container('docker') {
+                docker build -t sample2 .
+                docker tag ztacr.azurecr.io/sample2:v1
+                docker tag ztacr.azurecr.io/sample2:latest
+                docker tag ztacr.azurecr.io/sample2:${BUILD_NUMBER}
+                docker push ztacr.azurecr.io/sample2:v1
+                docker push ztacr.azurecr.io/sample2:latest
+                docker push ztacr.azurecr.io/sample2:${BUILD_NUMBER}
+            }
+        }
+         stage('Unit Tests') {
+            container('maven') {
+                //sh 'mvn surefire:test'
+            }
+        }
+        stage('Integration Tests') {
+            container('maven') {
+                //sh 'mvn failsafe:integration-test'
+            }
+        }
+       
+      }
+    }
+    
+  
